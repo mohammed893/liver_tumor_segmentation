@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
+import 'dart:async';
 
 /// Widget for displaying CT slices with overlay support
 class SliceViewer extends StatefulWidget {
@@ -68,16 +69,19 @@ class _SliceViewerState extends State<SliceViewer> {
       rgbaData[rgbaIndex + 3] = 255;   // A
     }
     
-    final codec = await ui.instantiateImageCodec(
+    final completer = Completer<ui.Image>();
+    ui.decodeImageFromPixels(
       rgbaData,
-      targetWidth: widget.width,
-      targetHeight: widget.height,
+      widget.width,
+      widget.height,
+      ui.PixelFormat.rgba8888,
+      completer.complete,
     );
-    final frame = await codec.getNextFrame();
     
+    final image = await completer.future;
     if (mounted) {
       setState(() {
-        _baseImage = frame.image;
+        _baseImage = image;
       });
     }
   }
@@ -107,16 +111,19 @@ class _SliceViewerState extends State<SliceViewer> {
       }
     }
     
-    final codec = await ui.instantiateImageCodec(
+    final completer = Completer<ui.Image>();
+    ui.decodeImageFromPixels(
       rgbaData,
-      targetWidth: widget.width,
-      targetHeight: widget.height,
+      widget.width,
+      widget.height,
+      ui.PixelFormat.rgba8888,
+      completer.complete,
     );
-    final frame = await codec.getNextFrame();
     
+    final image = await completer.future;
     if (mounted) {
       setState(() {
-        _maskImage = frame.image;
+        _maskImage = image;
       });
     }
   }

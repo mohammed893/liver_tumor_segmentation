@@ -77,8 +77,7 @@ class _CTViewerPageState extends State<CTViewerPage> {
   Future<void> _loadNiftiFile() async {
     try {
       final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['nii', 'gz'],
+        type: FileType.any,
         allowMultiple: false,
       );
       
@@ -93,10 +92,12 @@ class _CTViewerPageState extends State<CTViewerPage> {
         setState(() {
           _volume = volume;
           _currentSlice = volume.depth ~/ 2; // Start at middle slice
-          _windowMin = volume.minValue.toDouble();
-          _windowMax = volume.maxValue.toDouble();
+          // Set conservative window range
+          _windowMin = -1000;
+          _windowMax = 200;
+          
           _isLoading = false;
-          _statusMessage = 'Loaded ${volume.width}x${volume.height}x${volume.depth} volume';
+          _statusMessage = 'Loaded ${volume.width}x${volume.height}x${volume.depth} volume\nRange: ${volume.minValue} to ${volume.maxValue}';
           _maskData = null;
         });
         
@@ -421,8 +422,8 @@ class _CTViewerPageState extends State<CTViewerPage> {
                             Text('Min: ${_windowMin.toInt()}'),
                             Slider(
                               value: _windowMin,
-                              min: _volume!.minValue.toDouble(),
-                              max: _volume!.maxValue.toDouble(),
+                              min: -2000,
+                              max: 2000,
                               onChanged: (value) {
                                 setState(() => _windowMin = value);
                                 _updateSliceDisplay();
@@ -432,8 +433,8 @@ class _CTViewerPageState extends State<CTViewerPage> {
                             Text('Max: ${_windowMax.toInt()}'),
                             Slider(
                               value: _windowMax,
-                              min: _volume!.minValue.toDouble(),
-                              max: _volume!.maxValue.toDouble(),
+                              min: -2000,
+                              max: 2000,
                               onChanged: (value) {
                                 setState(() => _windowMax = value);
                                 _updateSliceDisplay();

@@ -1,5 +1,4 @@
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 import 'package:image/image.dart' as img;
 
 /// Image processing utilities for CT slices
@@ -13,20 +12,24 @@ class ImageProcessor {
     double windowMax,
   ) {
     final result = Uint8List(width * height);
-    final windowRange = windowMax - windowMin;
+    
+    // Find min/max in raw data
+    int minRaw = sliceData[0];
+    int maxRaw = sliceData[0];
+    for (final value in sliceData) {
+      if (value < minRaw) minRaw = value;
+      if (value > maxRaw) maxRaw = value;
+    }
+    
+    // Simple linear scaling from raw data range to 0-255
+    final rawRange = maxRaw - minRaw;
+    if (rawRange == 0) {
+      result.fillRange(0, result.length, 128);
+      return result;
+    }
     
     for (int i = 0; i < sliceData.length; i++) {
-      final value = sliceData[i].toDouble();
-      double normalized;
-      
-      if (value <= windowMin) {
-        normalized = 0.0;
-      } else if (value >= windowMax) {
-        normalized = 1.0;
-      } else {
-        normalized = (value - windowMin) / windowRange;
-      }
-      
+      final normalized = (sliceData[i] - minRaw) / rawRange;
       result[i] = (normalized * 255).round().clamp(0, 255);
     }
     
@@ -72,7 +75,7 @@ class ImageProcessor {
     );
     
     final blurred = img.gaussianBlur(image, radius: radius.toInt());
-    return Uint8List.fromList(blurred.getBytes());
+    return Uint8List.fromList(blurred.toUint8List());
   }
   
   /// Apply sharpen filter
@@ -81,23 +84,26 @@ class ImageProcessor {
     int width,
     int height,
   ) {
-    final image = img.Image.fromBytes(
-      width: width,
-      height: height,
-      bytes: imageData.buffer,
-      format: img.Format.uint8,
-      numChannels: 1,
-    );
+    // Simple CPU-based sharpening using convolution
+    final result = Uint8List.fromList(imageData);
     
-    // Simple sharpen kernel
-    final kernel = [
-      [0, -1, 0],
-      [-1, 5, -1],
-      [0, -1, 0],
-    ];
+    // Apply simple sharpening kernel manually
+    for (int y = 1; y < height - 1; y++) {
+      for (int x = 1; x < width - 1; x++) {
+        final idx = y * width + x;
+        final center = imageData[idx].toDouble();
+        final top = imageData[(y - 1) * width + x].toDouble();
+        final bottom = imageData[(y + 1) * width + x].toDouble();
+        final left = imageData[y * width + (x - 1)].toDouble();
+        final right = imageData[y * width + (x + 1)].toDouble();
+        
+        // Sharpen kernel: center * 5 - neighbors
+        final sharpened = (center * 5 - top - bottom - left - right);
+        result[idx] = sharpened.clamp(0, 255).toInt();
+      }
+    }
     
-    final sharpened = img.convolution(image, kernel);
-    return Uint8List.fromList(sharpened.getBytes());
+    return result;
   }
   
   /// Apply edge detection (Sobel)
@@ -115,7 +121,7 @@ class ImageProcessor {
     );
     
     final edges = img.sobel(image);
-    return Uint8List.fromList(edges.getBytes());
+    return Uint8List.fromList(edges.toUint8List());
   }
   
   /// Apply CLAHE (Contrast Limited Adaptive Histogram Equalization)
